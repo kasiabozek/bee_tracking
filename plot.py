@@ -9,9 +9,8 @@ import re
 from utils import FR1, FR2, SQ, N_PROC, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR, FFMPEG_PATH
 
 WIDTH = 2
-BEE_COL = (255, 0, 0, 100)
-OTHER_BEE_COL = (255, 255, 0, 100)
-
+BEE_COL = (255, 0, 0, 200)
+OTHER_BEE_COL = (255, 255, 0, 200)
 
 ###########################################
 
@@ -61,8 +60,8 @@ def add_circle(draw, y, x, col, w=1, r=10):
 def plot_frame(fr_i, frs, tra, out_path):
     fr = frs[fr_i]
     img = Image.open(os.path.join(IMG_DIR, "%06d.png" % fr)).convert('RGBA')
-    marks = Image.new("RGBA", img.size)
-    draw = ImageDraw.Draw(marks)
+    draw = ImageDraw.Draw(img)
+
     other_bees = np.loadtxt(os.path.join(POS_DIR, "%06d.txt" % fr), delimiter=',')
     for bee_i in range(other_bees.shape[0]):
         x = other_bees[bee_i, 0]
@@ -81,13 +80,11 @@ def plot_frame(fr_i, frs, tra, out_path):
         draw.line([(x-SQ, y-SQ), (x+SQ, y-SQ), (x+SQ, y+SQ), (x-SQ, y+SQ), (x-SQ, y-SQ)], fill=BEE_COL, width=WIDTH)
         add_center(draw, y, x, BEE_COL)
 
-    img = Image.alpha_composite(img, marks)
-
     img.save(os.path.join(out_path, "%06d.png" % fr_i))
 
 
 def plot_trajectory(id):
-    print(id)
+    print("plotting trajectory %i.." % id, flush=True)
     out_path = PLOTS_DIR + ("/%i" % id)
 
     if not os.path.exists(PLOTS_DIR):
@@ -102,8 +99,7 @@ def plot_trajectory(id):
     tra = np.loadtxt(os.path.join(TRACK_DIR, "%06d.txt" % id), delimiter=',')
     fr1, fr2 = int(tra[0,0]), int(tra[-1,0])
     frs = list(range(fr1, fr2))
-    #for fr in frs:
-    #    plot_frame(fr, tra = tra, out_path = out_path)
+
     pool = Pool(processes=N_PROC)
     pool.map(partial(plot_frame, frs=frs, tra=tra, out_path=out_path), list(range(len(frs))))
     pool.close()
@@ -183,7 +179,7 @@ def plot_all_trajectories():
     random.shuffle(xs)
     for i, ind in enumerate(tra_nbs):
         c = [int(j * 255) for j in colorsys.hsv_to_rgb(xs[i], 1, 1)]
-        ind_cols[ind] = (c[0], c[1], c[2], 128)
+        ind_cols[ind] = (c[0], c[1], c[2], 200)
 
     pool = Pool(processes=N_PROC)
     pool.map(partial(plot_frame_bees, ind_cols=ind_cols, bees_in_frames=bif, out_path=out_path), range(FR1, FR2))
