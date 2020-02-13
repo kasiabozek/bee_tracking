@@ -6,7 +6,7 @@ from multiprocessing import Pool
 from functools import partial
 import colorsys
 import re
-from utils import FR1, FR2, SQ, N_PROC, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR, FFMPEG_PATH
+from utils import FR1, FR2, SQ, N_PROC, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR, FFMPEG
 
 WIDTH = 2
 BEE_COL = (255, 0, 0, 200)
@@ -110,7 +110,7 @@ def plot_trajectory(id):
         os.remove(movie_file)
 
 
-    subprocess.call([FFMPEG_PATH, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
+    subprocess.call([FFMPEG, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
     shutil.rmtree(out_path)
 
 
@@ -190,7 +190,7 @@ def plot_all_trajectories():
     if os.path.exists(movie_file):
         os.remove(movie_file)
 
-    subprocess.call([FFMPEG_PATH, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
+    subprocess.call([FFMPEG, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
 
     shutil.rmtree(out_path)
 
@@ -235,4 +235,4 @@ def plot_detection_video():
     if os.path.exists(movie_file):
         os.remove(movie_file)
 
-    subprocess.call([FFMPEG_PATH, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
+    subprocess.call([FFMPEG, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])

@@ -1,4 +1,4 @@
-import os
+import os, sys
 import numpy as np
 from PIL import Image
 from multiprocessing import Pool
@@ -13,18 +13,17 @@ EMB_SIZE = 64
 N_PROC = 3
 FR1, FR2 = 0, 100
 FR_D = 512
-FFMPEG_PATH = "../../ffmpeg/ffmpeg"
 
-DATA_DIR = "sample_data/"
-IMG_DIR = DATA_DIR + "frames"
-POS_DIR = DATA_DIR + "detections"
-FTS_DIR = DATA_DIR + "detections_embeddings"
-TRACK_DIR = DATA_DIR + "trajectories"
-TMP_DIR = DATA_DIR + "tmp"
-PLOTS_DIR = DATA_DIR + "plots"
+FFMPEG = "../../ffmpeg/ffmpeg"
 
-if not os.path.exists(TMP_DIR):
-    os.mkdir(TMP_DIR)
+DATA_DIR = "sample_data"
+IMG_DIR = os.path.join(DATA_DIR, "frames")
+POS_DIR = os.path.join(DATA_DIR, "detections")
+FTS_DIR = os.path.join(DATA_DIR, "detections_embeddings")
+TRACK_DIR = os.path.join(DATA_DIR, "trajectories")
+TMP_DIR = os.path.join(DATA_DIR, "tmp")
+PLOTS_DIR = os.path.join(DATA_DIR, "plots")
+
 
 def find_devices():
     devices = device_lib.list_local_devices()
@@ -74,3 +73,17 @@ def txt2npy(txt_path, npy_path, nproc):
     pool.map(partial(t2n, fls = fls, txt_path=txt_path, npy_path=npy_path), range(len(fls)))
     pool.close()
     pool.join()
+
+
+class DownloadProgress:
+    def __init__(self):
+        self.old_percent = 0
+        sys.stdout.write("downloading.. ")
+
+    def progress_hook(self, count, block_size, total_size):
+        percent = int(count * block_size * 100 / total_size)
+        if (percent > self.old_percent) and (percent % 3 == 0):
+            self.old_percent = percent
+            sys.stdout.write("%i%%.. " % percent)
+        if percent == 100:
+            sys.stdout.write('done!\n')

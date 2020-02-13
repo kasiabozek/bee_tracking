@@ -15,11 +15,14 @@ BATCH_SIZE = 12
 CHECKPOINT = 5000
 LABEL_SIZE = 5
 
-checkpoint_file = utils.DATA_DIR + "checkpoints/model_%06d.ckpt" % CHECKPOINT
+checkpoint_file = os.path.join(utils.DATA_DIR, "checkpoints/model_%06d.ckpt" % CHECKPOINT)
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 to_save = mp.Queue()
+
+if not os.path.exists(TMP_DIR):
+    os.mkdir(TMP_DIR)
 
 ###############################################
 
@@ -78,12 +81,10 @@ def build_model():
         test_iter = build_ds()
         is_train = tf.constant(False, dtype=tf.bool, shape=[])
         outputs = ()
-        #with tf.variable_scope(tf.get_variable_scope()):
         with tf.device(tf_dev), tf.name_scope('%s_%d' % (utils.GPU_NAME, 0)) as scope:
             img, label = test_iter.get_next()
             v, _ = inception.inception_v3(img, is_training=is_train, scope=scope, num_classes=EMB_SIZE)
             outputs = (label, v)
-            #tf.get_variable_scope().reuse_variables()
         saver = tf.train.Saver(tf.global_variables())
         sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
