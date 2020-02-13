@@ -14,7 +14,7 @@ N_PROC = 3
 FR1, FR2 = 0, 100
 FR_D = 512
 
-FFMPEG = "../../ffmpeg/ffmpeg"
+FFMPEG = "ffmpeg"
 
 DATA_DIR = "sample_data"
 IMG_DIR = os.path.join(DATA_DIR, "frames")
