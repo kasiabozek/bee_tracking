@@ -1,12 +1,10 @@
-import os, shutil
-import random, subprocess, math
+import os
+import random, math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from multiprocessing import Pool
-from functools import partial
 import colorsys
 import re
-from utils import FR1, FR2, SQ, N_PROC, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR, FFMPEG
+from utils import FR1, FR2, SQ, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR
 
 WIDTH = 2
 BEE_COL = (255, 0, 0, 200)
@@ -57,8 +55,7 @@ def add_circle(draw, y, x, col, w=1, r=10):
 ###########################################
 
 
-def plot_frame(fr_i, frs, tra, out_path):
-    fr = frs[fr_i]
+def plot_frame(fr, tra):
     img = Image.open(os.path.join(IMG_DIR, "%06d.png" % fr)).convert('RGBA')
     draw = ImageDraw.Draw(img)
 
@@ -80,48 +77,34 @@ def plot_frame(fr_i, frs, tra, out_path):
         draw.line([(x-SQ, y-SQ), (x+SQ, y-SQ), (x+SQ, y+SQ), (x-SQ, y+SQ), (x-SQ, y-SQ)], fill=BEE_COL, width=WIDTH)
         add_center(draw, y, x, BEE_COL)
 
-    img.save(os.path.join(out_path, "%06d.png" % fr_i))
+    return img
 
 
 def plot_trajectory(id):
     print("plotting trajectory %i.." % id, flush=True)
-    out_path = PLOTS_DIR + ("/%i" % id)
-
     if not os.path.exists(PLOTS_DIR):
         os.mkdir(PLOTS_DIR)
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
-    else:
-        fls = os.listdir(out_path)
-        for fl in fls:
-            os.remove(os.path.join(out_path, fl))
 
     tra = np.loadtxt(os.path.join(TRACK_DIR, "%06d.txt" % id), delimiter=',')
     fr1, fr2 = int(tra[0,0]), int(tra[-1,0])
     frs = list(range(fr1, fr2))
 
-    pool = Pool(processes=N_PROC)
-    pool.map(partial(plot_frame, frs=frs, tra=tra, out_path=out_path), list(range(len(frs))))
-    pool.close()
-    pool.join()
+    imgs = [ plot_frame(fr, tra) for fr in frs ]
 
-    movie_file = os.path.join(PLOTS_DIR, "%06d.mp4" % (id))
-    if os.path.isfile(movie_file):
-        os.remove(movie_file)
+    movie_file = os.path.join(PLOTS_DIR, "%06d.gif" % (id))
 
-
-    subprocess.call([FFMPEG, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
-    shutil.rmtree(out_path)
+    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)
 
 
 ##################################################################
 
 
-def plot_frame_bees(fr, bees_in_frames, ind_cols, out_path):
+def plot_frame_bees(fr, bees_in_frames, hues):
     bif = bees_in_frames[fr]
 
     img = Image.open(os.path.join(IMG_DIR, "%06d.png" % fr)).convert('RGBA')
-    draw = ImageDraw.Draw(img)
+    markers = Image.new("RGBA", img.size)
+    draw = ImageDraw.Draw(markers)
     all_bees = np.loadtxt(os.path.join(POS_DIR, "%06d.txt" % fr), delimiter=',').astype(np.int)
 
     fnt = ImageFont.truetype('arial.ttf', 20)
@@ -133,19 +116,20 @@ def plot_frame_bees(fr, bees_in_frames, ind_cols, out_path):
         if wh.size > 0:
             ids = bif[wh, 0]
             for id in ids:
-                col = ind_cols[id]
-                draw.line([(y-SQ, x-SQ), (y+SQ, x-SQ), (y+SQ, x+SQ), (y-SQ, x+SQ), (y-SQ, x-SQ)], fill=col, width=WIDTH)
-                add_center(draw, x, y, col)
-                (r,g,b,_) = ind_cols[id]
-                draw.text((y, x), str(id), font=fnt, fill=(r,g,b,100))
-
-        if all_bees[i, 2] == 1:
-            add_circle(draw, x, y, OTHER_BEE_COL)
+                r, g, b = [int(j * 255) for j in colorsys.hsv_to_rgb(hues[id], 1, 1)]
+                draw.line([(y-SQ, x-SQ), (y+SQ, x-SQ), (y+SQ, x+SQ), (y-SQ, x+SQ), (y-SQ, x-SQ)], fill=(r,g,b, 150), width=WIDTH)
+                add_center(draw, x, y, (r,g,b, 150))
+                draw.text((y, x), str(id), font=fnt, fill=(r,g,b,255))
         else:
-            add_arrow(draw, x, y, math.radians(all_bees[i, 3]), OTHER_BEE_COL)
-        add_center(draw, x, y, OTHER_BEE_COL, d=WIDTH//2)
+            if all_bees[i, 2] == 1:
+                add_circle(draw, x, y, OTHER_BEE_COL)
+            else:
+                add_arrow(draw, x, y, math.radians(all_bees[i, 3]), OTHER_BEE_COL)
+            add_center(draw, x, y, OTHER_BEE_COL, d=WIDTH//2)
 
-    img.save(os.path.join(out_path, "%06d.png" % fr))
+    img = Image.alpha_composite(img, markers)
+
+    return img
 
 
 def organize_by_frame():
@@ -165,43 +149,26 @@ def organize_by_frame():
 
 
 def plot_all_trajectories():
-    out_path = os.path.join(PLOTS_DIR,"all")
-
-    if os.path.exists(out_path):
-        shutil.rmtree(out_path)
-    os.mkdir(out_path)
+    if not os.path.exists(PLOTS_DIR):
+        os.mkdir(PLOTS_DIR)
 
     bif, tra_nbs = organize_by_frame()
 
-    ind_cols = {}
-    n = len(tra_nbs)
-    xs = list(map(lambda x: float(x)/n, tra_nbs))
-    random.shuffle(xs)
-    for i, ind in enumerate(tra_nbs):
-        c = [int(j * 255) for j in colorsys.hsv_to_rgb(xs[i], 1, 1)]
-        ind_cols[ind] = (c[0], c[1], c[2], 200)
+    hues = list(map(lambda x: float(x)/len(tra_nbs), tra_nbs))
+    random.shuffle(hues)
 
-    pool = Pool(processes=N_PROC)
-    pool.map(partial(plot_frame_bees, ind_cols=ind_cols, bees_in_frames=bif, out_path=out_path), range(FR1, FR2))
-    pool.close()
-    pool.join()
+    imgs = [plot_frame_bees(fr, bif, hues) for fr in range(FR1, FR2)]
+    movie_file = os.path.join(PLOTS_DIR, "all_trajectories.gif")
+    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)
 
-    movie_file = os.path.join(PLOTS_DIR, "all_trajectories.mp4")
-    if os.path.exists(movie_file):
-        os.remove(movie_file)
-
-    subprocess.call([FFMPEG, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
-
-    shutil.rmtree(out_path)
 
 ##################################################################
 
 
-def plot_detections(fr, out_path):
-    if not os.path.exists(PLOTS_DIR):
-        os.mkdir(PLOTS_DIR)
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
+def plot_detections(fr, save):
+    if save:
+        if not os.path.exists(PLOTS_DIR):
+            os.mkdir(PLOTS_DIR)
 
     img = Image.open(os.path.join(IMG_DIR, "%06d.png" % fr)).convert('RGBA')
     draw = ImageDraw.Draw(img)
@@ -215,24 +182,16 @@ def plot_detections(fr, out_path):
             add_arrow(draw, x, y, math.radians(all_bees[i, 3]), OTHER_BEE_COL)
         add_center(draw, x, y, OTHER_BEE_COL, d=WIDTH//2)
 
-    img.save(os.path.join(out_path, "%06d.png" % fr))
+    if save:
+        img.save(os.path.join(PLOTS_DIR, "%06d.png" % fr))
+    return img
 
 
 def plot_detection_video():
-    out_path = os.path.join(PLOTS_DIR, "detections")
-
     if not os.path.exists(PLOTS_DIR):
         os.mkdir(PLOTS_DIR)
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
 
-    pool = Pool(processes=N_PROC)
-    pool.map(partial(plot_detections, out_path=out_path), range(FR1, FR2))
-    pool.close()
-    pool.join()
+    imgs = [ plot_detections(fr, False) for fr in range(FR1, FR2) ]
 
-    movie_file = os.path.join(PLOTS_DIR, "detections.mp4")
-    if os.path.exists(movie_file):
-        os.remove(movie_file)
-
-    subprocess.call([FFMPEG, "-r", "10", "-i", out_path + "/%06d.png", "-vf", "format=yuv420p", "-codec:v", "libx264", movie_file])
+    movie_file = os.path.join(PLOTS_DIR, "detections.gif")
+    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)

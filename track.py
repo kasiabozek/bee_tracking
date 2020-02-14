@@ -24,7 +24,7 @@ def get_look_back_tra(t, i, last_seen):
     return get_look_back(x, y, is_butt)
 
 
-def dist_m(t, tra_cols, last_seen, lens, fr_i, fr_preds, lens_next=[]):
+def dist_m(t, tra_cols, last_seen, lens, fr_i, fr_preds):
     res = np.zeros([0,5])
     vs = np.zeros((LAST_N, EMB_SIZE))
     for i1 in range(t.shape[1]):
@@ -50,11 +50,9 @@ def dist_m(t, tra_cols, last_seen, lens, fr_i, fr_preds, lens_next=[]):
             res_tra[:, 1] = det_is
             res_tra[:, 4] = 1 - l1/np.max(lens)
             for i2, det_i in enumerate(det_is):
-                res_tra[i2, 2] = d[det_i] #/ fr_d[det_i]
+                res_tra[i2, 2] = d[det_i]
                 vd = [np.sum((fr_preds[det_i, 4:] - vs[vi,:]) ** 2) ** 0.5 for vi in range(LAST_N)]
                 res_tra[i2, 3] = np.min(vd)
-                if len(lens_next) > 0:
-                    res_tra[i2,4] = (res_tra[i2,4] + 1 - lens_next[i2]/np.max(lens_next)) / 2
             res_tra = res_tra[res_tra[:, 3] <= VIS_CUT,:]
             res = np.append(res, res_tra, axis=0)
     return res
@@ -173,7 +171,7 @@ def sort_trajectories():
     np.savetxt(os.path.join(TRACK_DIR, "tra_lens.txt"), tra_lens, delimiter=",", fmt="%i")
 
     for i in range(tra_lens.shape[0]):
-        np.savetxt(os.path.join(TRACK_DIR, "%06d.txt" % (i)), all_tras[ord[i]], fmt="%i", delimiter=",")
+        np.savetxt(os.path.join(TRACK_DIR, "%06d.txt" % i), all_tras[ord[i]], fmt="%i", delimiter=",")
 
 
 

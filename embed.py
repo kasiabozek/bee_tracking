@@ -3,17 +3,16 @@ import tensorflow as tf
 if int(tf.__version__[0]) > 1:
     import tensorflow.compat.v1 as tf
     tf.disable_v2_behavior()
-
 import numpy as np
 import utils, inception
 import multiprocessing as mp
-from utils import FR1, FR2, EMB_SIZE, D, N_PROC, IMG_DIR, FTS_DIR, TMP_DIR, POS_DIR
-
+from utils import FR1, FR2, EMB_SIZE, D, IMG_DIR, FTS_DIR, TMP_DIR, POS_DIR
 
 SH = (D, D, 1)
 BATCH_SIZE = 12
 CHECKPOINT = 5000
 LABEL_SIZE = 5
+N_PROC = 3
 
 checkpoint_file = os.path.join(utils.DATA_DIR, "checkpoints/model_%06d.ckpt" % CHECKPOINT)
 

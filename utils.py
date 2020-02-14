@@ -10,11 +10,8 @@ GPU_NAME = 'tower'
 D = 80
 SQ = D // 2
 EMB_SIZE = 64
-N_PROC = 3
 FR1, FR2 = 0, 100
 FR_D = 512
-
-FFMPEG = "ffmpeg"
 
 DATA_DIR = "sample_data"
 IMG_DIR = os.path.join(DATA_DIR, "frames")
