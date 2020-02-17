@@ -95,6 +95,7 @@ def plot_trajectory(id):
 
     imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)
 
+    return movie_file
 
 ##################################################################
 
