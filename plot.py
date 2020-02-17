@@ -99,6 +99,7 @@ def plot_trajectory(id):
 
 ##################################################################
 
+from utils import TMP_DIR
 
 def plot_frame_bees(fr, bees_in_frames, hues):
     bif = bees_in_frames[fr]
@@ -118,8 +119,7 @@ def plot_frame_bees(fr, bees_in_frames, hues):
             ids = bif[wh, 0]
             for id in ids:
                 r, g, b = [int(j * 255) for j in colorsys.hsv_to_rgb(hues[id], 1, 1)]
-                draw.line([(y-SQ, x-SQ), (y+SQ, x-SQ), (y+SQ, x+SQ), (y-SQ, x+SQ), (y-SQ, x-SQ)], fill=(r,g,b, 150), width=WIDTH)
-                add_center(draw, x, y, (r,g,b, 150))
+                add_center(draw, x, y, (r,g,b, 255))
                 draw.text((y, x), str(id), font=fnt, fill=(r,g,b,255))
         else:
             if all_bees[i, 2] == 1:
@@ -130,6 +130,7 @@ def plot_frame_bees(fr, bees_in_frames, hues):
 
     img = Image.alpha_composite(img, markers)
 
+    img.save(os.path.join(TMP_DIR,"%06d.png" % fr))
     return img
 
 
@@ -162,6 +163,7 @@ def plot_all_trajectories():
     movie_file = os.path.join(PLOTS_DIR, "all_trajectories.gif")
     imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)
 
+    return movie_file
 
 ##################################################################
 
