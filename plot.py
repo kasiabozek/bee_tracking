@@ -130,7 +130,6 @@ def plot_frame_bees(fr, bees_in_frames, hues):
 
     img = Image.alpha_composite(img, markers)
 
-    img.save(os.path.join(TMP_DIR,"%06d.png" % fr))
     return img
 
 
