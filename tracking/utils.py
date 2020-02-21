@@ -13,7 +13,7 @@ EMB_SIZE = 64
 FR1, FR2 = 0, 100
 FR_D = 512
 
-DATA_DIR = "sample_data"
+DATA_DIR = "data"
 IMG_DIR = os.path.join(DATA_DIR, "frames")
 POS_DIR = os.path.join(DATA_DIR, "detections")
 FTS_DIR = os.path.join(DATA_DIR, "detections_embeddings")

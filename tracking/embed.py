@@ -1,12 +1,15 @@
 import os
+
 import tensorflow as tf
+
 if int(tf.__version__[0]) > 1:
     import tensorflow.compat.v1 as tf
     tf.disable_v2_behavior()
 import numpy as np
-import utils, inception
+import inception
+from tracking import utils
 import multiprocessing as mp
-from utils import FR1, FR2, EMB_SIZE, D, IMG_DIR, FTS_DIR, TMP_DIR, POS_DIR
+from tracking.utils import FR1, FR2, EMB_SIZE, D, IMG_DIR, FTS_DIR, TMP_DIR, POS_DIR
 
 SH = (D, D, 1)
 BATCH_SIZE = 12

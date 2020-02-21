@@ -1,10 +1,13 @@
+import colorsys
+import math
 import os
-import random, math
+import random
+import re
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-import colorsys
-import re
-from utils import FR1, FR2, SQ, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR
+
+from tracking.utils import FR1, FR2, SQ, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR
 
 WIDTH = 2
 BEE_COL = (255, 0, 0, 200)
@@ -98,8 +101,6 @@ def plot_trajectory(id):
     return movie_file
 
 ##################################################################
-
-from utils import TMP_DIR
 
 def plot_frame_bees(fr, bees_in_frames, hues):
     bif = bees_in_frames[fr]
