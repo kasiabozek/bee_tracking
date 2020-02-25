@@ -22,6 +22,7 @@ IMG_DIR = os.path.join(DATA_DIR, "frames")
 POS_DIR = os.path.join(DATA_DIR, "detections")
 TMP_DIR = os.path.join(DATA_DIR, "tmp")
 PLOTS_DIR = os.path.join(DATA_DIR, "plots")
+DET_DATA_DIR = os.path.join(DATA_DIR, "detection_data")
 
 
 def find_last_checkpoint(path):

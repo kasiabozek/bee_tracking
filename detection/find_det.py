@@ -8,6 +8,7 @@ from . import segm_proc
 import time
 import numpy as np
 import math
+import shutil
 import multiprocessing
 from . import utils
 from .utils import D, GPU_NAME, DATA_DIR, IMG_DIR, POS_DIR, TMP_DIR
@@ -54,8 +55,8 @@ def save_output_worker():
                     a_d = math.degrees(a)
                     ax_d = ax_d + 180 if (segm_proc.angle_diff(a_d, ax_d) > 90) else ax_d
                     res_batch[i, :] = [x, y, cl, ax_d]
-                res_batch[:, 0] += off_y
-                res_batch[:, 1] += off_x
+                res_batch[:, 0] += off_x
+                res_batch[:, 1] += off_y
                 res = np.append(res, res_batch, axis=0)
         print("processed frame %i, %i bees" % (cur_fr, res.shape[0]), flush=True)
         with open(os.path.join(POS_DIR, "%06d.txt" % cur_fr), 'a') as f:
@@ -177,8 +178,9 @@ class DetectionInference:
 
 def find_detections():
     print(DATA_DIR)
-    if not os.path.exists(POS_DIR):
-        os.mkdir(POS_DIR)
+    if os.path.exists(POS_DIR):
+        shutil.rmtree(POS_DIR)
+    os.mkdir(POS_DIR)
     if not os.path.exists(TMP_DIR):
         os.mkdir(TMP_DIR)
 

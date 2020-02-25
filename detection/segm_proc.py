@@ -27,13 +27,13 @@ SZ_MAX = 1000
 
 
 def find_center(regions, rg):
-    xs, ys = np.where(regions == rg)
+    ys, xs = np.where(regions == rg)
     sz = len(xs)
     res = (-1, -1, -1)
     if (sz > SZ_MIN) and (sz <= SZ_MAX):
         m = np.zeros((sz, 2))
-        m[:,0] = -ys
-        m[:,1] = xs
+        m[:,0] = -xs
+        m[:,1] = ys
         pca = PCA(n_components=2)
         pca.fit(m)
         p = pca.components_
