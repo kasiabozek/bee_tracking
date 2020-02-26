@@ -10,9 +10,9 @@ def ellipse_around_point(xc, yc, a, d, r1, r2):
     ind = np.zeros((2, d, d), dtype=np.int)
     m = np.zeros((d, d), dtype=np.float32)
     for i in range(d):
-        ind[0,:,i] = range(-xc, d-xc)
+        ind[0,:,i] = range(-yc, d-yc)
     for i in range(d):
-        ind[1,i,:] = range(-yc, d-yc)
+        ind[1,i,:] = range(-xc, d-xc)
     rs1 = np.arange(r1, 0, -float(r1)/r2)
     rs2 = np.arange(r2, 0, -1.0)
     s = math.sin(a)
@@ -24,7 +24,7 @@ def ellipse_around_point(xc, yc, a, d, r1, r2):
         i2 = rs2[i]
         v = norm.pdf(float(len(rs1) - i) / len(rs1)) / pdf0
     # rotated ellipse
-        m[((ind[1,:,:] * s + ind[0,:,:] * c)**2 / i1**2 + (ind[0,:,:] * s - ind[1,:,:] * c)**2 / i2**2) <= 1] = v
+        m[((ind[0,:,:] * s + ind[1,:,:] * c)**2 / i1**2 + (ind[1,:,:] * s - ind[0,:,:] * c)**2 / i2**2) <= 1] = v
 
     return m
 
@@ -50,10 +50,12 @@ def generate_segm_labels(img, pos, w=10, r1=7, r2=12):
 
         mask = (m != 0)
         res[1][mask] = obj_class
-        res[2][mask] = a / (2 * math.pi)
-        res[3][mask] = m[mask] * (w-1) + 1
+        res[2][mask] = a / (2*math.pi)
+        res[3][mask] = m[mask]
 
+    res[3] = res[3]*(w - 1) + 1
     return res
+
 
 def create_from_frames(frame_nbs, img_dir, pos_dir, out_dir=utils.DET_DATA_DIR):
     if not os.path.exists(out_dir):

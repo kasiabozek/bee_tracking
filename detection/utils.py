@@ -8,14 +8,6 @@ import itertools
 GPU_NAME = 'tower'
 D = 256
 FR_D = 512
-MARGIN = 25
-
-DATA_I = 0
-LABEL_POINT_I = 1
-LABEL_SEGM_I = 2
-LABEL_ANGLE_I = 3
-WEIGHTS_I = 4
-WEIGHTS_CLASS_I = 5
 
 DATA_DIR = "data"
 IMG_DIR = os.path.join(DATA_DIR, "frames")
@@ -23,6 +15,10 @@ POS_DIR = os.path.join(DATA_DIR, "detections")
 TMP_DIR = os.path.join(DATA_DIR, "tmp")
 PLOTS_DIR = os.path.join(DATA_DIR, "plots")
 DET_DATA_DIR = os.path.join(DATA_DIR, "detection_data")
+
+NUM_LAYERS = 3
+NUM_FILTERS = 32
+CLASSES = 3
 
 
 def find_last_checkpoint(path):

@@ -15,7 +15,7 @@ CHECKPOINT = 5000
 LABEL_SIZE = 5
 N_PROC = 3
 
-checkpoint_file = os.path.join(utils.DATA_DIR, "checkpoints/model_%06d.ckpt" % CHECKPOINT)
+checkpoint_file = os.path.join(utils.DATA_DIR, "checkpoints", "inception", "model_%06d.ckpt" % CHECKPOINT)
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 

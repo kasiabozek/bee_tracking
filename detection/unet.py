@@ -49,34 +49,6 @@ def _expansive_path(data, interim, num_layers, dim_in, dropout_ratio, is_trainin
         dim_out = int(dim_out / 2)
     return data
 
-def create_unet(name, data, is_training, prev=None, dropout_ratio=0, classes=3):
-    params = name.split(':')
-    num_layers = int(params[1])
-    num_filters = int(params[2])
-
-    (interim, contracting_data) = _contracting_path(data, num_layers, num_filters, dropout_ratio, is_training)
-
-    middle_dim = num_filters * 2**num_layers
-    middle_conv_1 = _create_conv_relu(contracting_data, "m_1", middle_dim, dropout_ratio=dropout_ratio, is_training=is_training)
-    middle_conv_2 = _create_conv_relu(middle_conv_1, "m_2", middle_dim, dropout_ratio=dropout_ratio, is_training=is_training)
-    middle_end = middle_conv_2
-
-    expansive_path = _expansive_path(middle_end, interim, num_layers, middle_dim, dropout_ratio, is_training)
-    last_relu = expansive_path
-
-    if prev != None:
-        expansive_path = tf.concat([prev, expansive_path], 3)
-
-    conv_last = _create_conv_relu(expansive_path, "final", classes, dropout_ratio=dropout_ratio, is_training=is_training)
-    return conv_last, last_relu
-
-def loss(logits, labels, weight_map, numclasses=3):
-    oh_labels = tf.one_hot(indices=tf.cast(labels, tf.uint8), depth=numclasses, name="one_hot")
-    loss_map = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=oh_labels)
-    weighted_loss = tf.multiply(loss_map, weight_map)
-    loss = tf.reduce_mean(weighted_loss, name="weighted_loss")
-    tf.add_to_collection('losses', loss)
-    return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
 def create_unet2(num_layers, num_filters, data, is_training, prev=None, dropout_ratio=0, classes=3):
 
@@ -100,6 +72,16 @@ def create_unet2(num_layers, num_filters, data, is_training, prev=None, dropout_
     angle_pred = _create_conv_relu(conv_angle, "angle_pred", 1, dropout_ratio=dropout_ratio, is_training=is_training, relu=False)
     return logits, last_relu, angle_pred
 
+
+def loss(logits, labels, weight_map, numclasses=3):
+    oh_labels = tf.one_hot(indices=tf.cast(labels, tf.uint8), depth=numclasses, name="one_hot")
+    loss_map = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=oh_labels)
+    weighted_loss = tf.multiply(loss_map, weight_map)
+    loss = tf.reduce_mean(weighted_loss, name="weighted_loss")
+    #tf.add_to_collection('losses', loss)
+    return loss #tf.add_n(tf.get_collection('losses'), name='total_loss')
+
+
 def angle_loss(angle_pred, angle_labels, weight_map):
 
     sh = tf.shape(angle_pred)
@@ -107,12 +89,14 @@ def angle_loss(angle_pred, angle_labels, weight_map):
     bg_mask = tf.logical_or(tf.less(angle_pred, 0), tf.less(angle_labels, 0))
     fg_mask = tf.logical_not(bg_mask)
 
-    fg_loss = tf.multiply(tf.boolean_mask(weight_map, fg_mask), tf.square(tf.sin((tf.boolean_mask(angle_pred, fg_mask) - tf.boolean_mask(angle_labels, fg_mask))*math.pi)))
-    bg_loss = tf.multiply(tf.boolean_mask(weight_map, bg_mask), tf.square(tf.boolean_mask(angle_pred, bg_mask) - tf.boolean_mask(angle_labels, bg_mask)))
+    fg_loss = tf.multiply(tf.boolean_mask(weight_map, fg_mask),
+                          tf.square(tf.sin((tf.boolean_mask(angle_pred, fg_mask) - tf.boolean_mask(angle_labels, fg_mask))*math.pi)))
+    bg_loss = tf.multiply(tf.boolean_mask(weight_map, bg_mask),
+                          tf.square(tf.boolean_mask(angle_pred, bg_mask) - tf.boolean_mask(angle_labels, bg_mask)))
 
     fg_loss = tf.reduce_mean(fg_loss, name="weighted_angle_loss")
     bg_loss = tf.reduce_mean(bg_loss, name="weighted_bg_angle_loss")
 
     loss = fg_loss + bg_loss
-    tf.add_to_collection('losses', loss)
-    return tf.add_n(tf.get_collection('losses'), name='total_loss')
+    #tf.add_to_collection('losses', loss)
+    return loss #tf.add_n(tf.get_collection('losses'), name='total_loss')

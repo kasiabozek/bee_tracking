@@ -11,11 +11,10 @@ import math
 import shutil
 import multiprocessing
 from . import utils
-from .utils import D, GPU_NAME, DATA_DIR, IMG_DIR, POS_DIR, TMP_DIR
+from .utils import D, GPU_NAME, DATA_DIR, IMG_DIR, POS_DIR, TMP_DIR, NUM_LAYERS, NUM_FILTERS, CLASSES
 
 N_PROC = 3
 BATCH_SIZE = 4
-NUM_LAYERS, NUM_FILTERS, CLASSES = 3, 32, 3
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
