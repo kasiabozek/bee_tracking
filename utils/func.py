@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, re
 import numpy as np
 from PIL import Image
 from multiprocessing import Pool
@@ -7,19 +7,24 @@ from tensorflow.python.client import device_lib
 import tensorflow as tf
 
 GPU_NAME = 'tower'
-D = 80
-SQ = D // 2
+MOVING_AVERAGE_DECAY = 0.9999
+DT = 80
+SQ = DT // 2
 EMB_SIZE = 64
 FR1, FR2 = 0, 100
+
+GPU_NAME = 'tower'
+DS = 256
 FR_D = 512
 
-DATA_DIR = "data"
-IMG_DIR = os.path.join(DATA_DIR, "frames")
-POS_DIR = os.path.join(DATA_DIR, "detections")
-FTS_DIR = os.path.join(DATA_DIR, "detections_embeddings")
-TRACK_DIR = os.path.join(DATA_DIR, "trajectories")
-TMP_DIR = os.path.join(DATA_DIR, "tmp")
-PLOTS_DIR = os.path.join(DATA_DIR, "plots")
+NUM_LAYERS = 3
+NUM_FILTERS = 32
+CLASSES = 3
+
+def find_last_checkpoint(path):
+    files = [f for f in os.listdir(path) if re.search('index$', f)]
+    nbs = map(lambda s: int(re.match(r'model_([0-9]+)\.ckpt\.index', s).group(1)), files)
+    return max(nbs)
 
 
 def find_devices():
@@ -45,8 +50,8 @@ def read_img(fr, path):
     return img
 
 
-def crop(img, x, y):
-    d = np.zeros((D, D), dtype=np.float32)
+def crop(img, y, x):
+    d = np.zeros((DT, DT), dtype=np.float32)
     x1 = 0 if x >= SQ else SQ - x
     x2 = 2*SQ if (img.shape[0] - x) >= SQ else SQ + (img.shape[0] - x)
     y1 = 0 if y >= SQ else SQ - y

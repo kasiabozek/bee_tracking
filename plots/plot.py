@@ -7,7 +7,8 @@ import re
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from tracking.utils import FR1, FR2, SQ, TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR
+from utils.func import FR1, FR2, SQ
+from utils.paths import TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR
 
 WIDTH = 2
 BEE_COL = (255, 0, 0, 200)
@@ -15,7 +16,7 @@ OTHER_BEE_COL = (255, 255, 0, 200)
 
 ###########################################
 
-def add_center(draw, y, x, col, d=WIDTH):
+def add_center(draw, x, y, col, d=WIDTH):
     draw.rectangle([x-d, y-d, x+d, y+d], outline=col, fill=col)
 
 def draw_head(x, y, a, draw, col, d, w):
@@ -29,7 +30,7 @@ def draw_head(x, y, a, draw, col, d, w):
     (x2, y2) = (x - dx, y + dy)
     draw.line([(x2,y2),(x,y)], fill=col, width=w)
 
-def add_arrow(draw, y, x, a, col, w=1, d=25.0):
+def add_arrow(draw, x, y, a, col, w=1, d=25.0):
     (x1,y1,x2,y2) = (0,0,0,0)
     dn = 4
     if (a == math.pi/2):
@@ -49,7 +50,7 @@ def add_arrow(draw, y, x, a, col, w=1, d=25.0):
     draw_head(x2, y2, a, draw, col, d/4, w)
 
 
-def add_circle(draw, y, x, col, w=1, r=10):
+def add_circle(draw, x, y, col, w=1, r=10):
     draw.ellipse([(x - r, y - r), (x + r, y + r)], outline=col)
     for i in range(1, w):
         r = r - i
@@ -74,11 +75,11 @@ def plot_frame(fr, tra):
 
     wh = np.where(tra[:,0] == fr)[0]
     if wh.size > 0:
-        y = tra[wh[0], 1]
-        x = tra[wh[0], 2]
+        x = tra[wh[0], 1]
+        y = tra[wh[0], 2]
 
         draw.line([(x-SQ, y-SQ), (x+SQ, y-SQ), (x+SQ, y+SQ), (x-SQ, y+SQ), (x-SQ, y-SQ)], fill=BEE_COL, width=WIDTH)
-        add_center(draw, y, x, BEE_COL)
+        add_center(draw, x, y, BEE_COL)
 
     return img
 
@@ -121,7 +122,7 @@ def plot_frame_bees(fr, bees_in_frames, hues):
             for id in ids:
                 r, g, b = [int(j * 255) for j in colorsys.hsv_to_rgb(hues[id], 1, 1)]
                 add_center(draw, x, y, (r,g,b, 255))
-                draw.text((y, x), str(id), font=fnt, fill=(r,g,b,255))
+                draw.text((x, y), str(id), font=fnt, fill=(r,g,b,255))
         else:
             if all_bees[i, 2] == 1:
                 add_circle(draw, x, y, OTHER_BEE_COL)

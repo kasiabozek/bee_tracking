@@ -1,9 +1,9 @@
+import numpy as np
 import os
 import re
 
-import numpy as np
-
-from tracking.utils import EMB_SIZE, SQ, TRACK_DIR, FTS_DIR, FR_D
+from utils.paths import TRACK_DIR, FTS_DIR
+from utils.func import EMB_SIZE, SQ, FR_D
 
 LAST_N = 10
 VIS_CUT = 1.75

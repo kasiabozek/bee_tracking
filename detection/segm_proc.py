@@ -1,9 +1,8 @@
 import numpy as np
 from sklearn.decomposition import PCA
 import math
-import cv2
 
-SZ_MIN = 10
+SZ_MIN = 50
 SZ_MAX = 1000
 
 #def points_dst(prs, lbs):
@@ -22,9 +21,38 @@ SZ_MAX = 1000
 #    lxs, lys = np.where(labels_point != -1)
 #    lbs = []
 #    for j in range(len(lxs)):
-#        lbs.append((lxs[j], lys[j], labels_segm[lxs[j], lys[j]], labels_point[lxs[j],lys[j]]))
+#        lbs.append(lxs[j], lys[j], labels_segm[lxs[j], lys[j]], labels_point[lxs[j],lys[j]]))
 #    return lbs
 
+
+def mark_region(i1, i2, m, regions, nb):
+    q = [(i1,i2)]
+    while (len(q) > 0):
+        (i1,i2) = q.pop(0)
+        regions[i1,i2] = nb
+        if (i1 > 0) and (regions[i1-1,i2] == 0) and m[i1-1,i2]:
+            regions[i1-1,i2] = -1
+            q.append((i1-1, i2))
+        if (i2 > 0) and (regions[i1,i2-1] == 0) and m[i1,i2-1]:
+            regions[i1,i2-1] = -1
+            q.append((i1, i2-1))
+        if (i1 < m.shape[0]-1) and (regions[i1+1,i2] == 0) and m[i1+1,i2]:
+            regions[i1+1,i2] = -1
+            q.append((i1+1, i2))
+        if (i2 < m.shape[1]-1) and (regions[i1,i2+1] == 0) and m[i1,i2+1]:
+            regions[i1,i2+1] = -1
+            q.append((i1, i2+1))
+    return regions
+
+def connected_components(m): # due to problems with opencv2
+    rg_nb = 0
+    regions = np.zeros(m.shape)
+    for i1 in range(m.shape[0]):
+        for i2 in range(m.shape[1]):
+            if (regions[i1,i2] == 0) and m[i1,i2]:
+                rg_nb = rg_nb + 1
+                regions = mark_region(i1, i2, m, regions, rg_nb)
+    return rg_nb+1, regions
 
 def find_center(regions, rg):
     ys, xs = np.where(regions == rg)
@@ -60,9 +88,7 @@ def find_angle(pred, regions, rg):
 
 
 def extract_positions(pred_class, pred_angle):
-    pred_class[pred_class == 0] = -1
-    mask = (pred_class >= 0).astype(np.int8)
-    region_nbs, regions = cv2.connectedComponents(mask)
+    region_nbs, regions = connected_components(pred_class > 0)
     res = []
     for rg in range(1, region_nbs):
         (x, y, ax) = find_center(regions, rg)

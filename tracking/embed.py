@@ -4,18 +4,16 @@ if int(tf.__version__[0]) > 1:
     import tensorflow.compat.v1 as tf
     tf.disable_v2_behavior()
 import numpy as np
-import inception
-from tracking import utils
+from . import inception
+from utils import func
 import multiprocessing as mp
-from tracking.utils import FR1, FR2, EMB_SIZE, D, IMG_DIR, FTS_DIR, TMP_DIR, POS_DIR
+from utils.func import FR1, FR2, EMB_SIZE, DT
+from utils.paths import IMG_DIR, FTS_DIR, TMP_DIR, POS_DIR, CHECKPOINT_DIR
 
-SH = (D, D, 1)
+SH = (DT, DT, 1)
 BATCH_SIZE = 12
-CHECKPOINT = 5000
 LABEL_SIZE = 5
 N_PROC = 3
-
-checkpoint_file = os.path.join(utils.DATA_DIR, "checkpoints", "inception", "model_%06d.ckpt" % CHECKPOINT)
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
@@ -50,10 +48,10 @@ def save_output_worker():
 def img_gen():
     for fr in range(FR1, FR2):
         frame_preds = np.loadtxt(os.path.join(POS_DIR, "%06d.txt" % fr), dtype=np.int, delimiter=",")
-        frame_img = utils.read_img(fr, IMG_DIR)
+        frame_img = func.read_img(fr, IMG_DIR)
         for i in range(frame_preds.shape[0]):
             x, y, cl, a = tuple(frame_preds[i,:])
-            img = np.reshape(utils.crop(frame_img, x, y), SH)
+            img = np.reshape(func.crop(frame_img, x, y), SH)
             label = np.array([fr,x,y,cl,a],dtype=np.int)
             yield img, label
     img = np.zeros(SH)
@@ -74,22 +72,23 @@ def build_ds():
     return test_iter
 
 
-def build_model():
-    cpu, gpu = utils.find_devices()
+def build_model(checkpoint_dir):
+    cpu, gpu = func.find_devices()
     tf_dev = gpu if gpu != "" else cpu
     with tf.Graph().as_default(), tf.device(cpu):
         test_iter = build_ds()
         is_train = tf.constant(False, dtype=tf.bool, shape=[])
         outputs = ()
-        with tf.device(tf_dev), tf.name_scope('%s_%d' % (utils.GPU_NAME, 0)) as scope:
+        with tf.device(tf_dev), tf.name_scope('%s_%d' % (func.GPU_NAME, 0)) as scope:
             img, label = test_iter.get_next()
             v, _ = inception.inception_v3(img, is_training=is_train, scope=scope, num_classes=EMB_SIZE)
             outputs = (label, v)
         saver = tf.train.Saver(tf.global_variables())
         sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
-        print("Restoring checkpoint %i.." % CHECKPOINT, flush=True)
-        saver.restore(sess, checkpoint_file)
+        checkpoint = func.find_last_checkpoint(checkpoint_dir)
+        print("Restoring checkpoint %i.." % checkpoint, flush=True)
+        saver.restore(sess, os.path.join(checkpoint_dir, 'model_%06d.ckpt' % checkpoint))
 
         init = tf.local_variables_initializer()
         sess.run(init)
@@ -123,7 +122,7 @@ def test_bees(sess, outputs):
 
 ###############################################
 
-def build_embeddings():
+def build_embeddings(checkpoint_dir=os.path.join(CHECKPOINT_DIR, "inception")):
     if os.path.exists(FTS_DIR):
         for fl in os.listdir(FTS_DIR):
             os.remove(os.path.join(FTS_DIR, fl))
@@ -131,7 +130,7 @@ def build_embeddings():
         os.mkdir(FTS_DIR)
 
     print("Building the model..", flush =True)
-    sess, outputs = build_model()
+    sess, outputs = build_model(checkpoint_dir)
     try:
         workers = start_workers()
         print("Starting infrerence..", flush=True)
@@ -139,6 +138,6 @@ def build_embeddings():
     finally:
         stop_workers(workers)
         print("Done..", flush=True)
-    utils.txt2npy(FTS_DIR, FTS_DIR, N_PROC)
+    func.txt2npy(FTS_DIR, FTS_DIR, N_PROC)
 
 

@@ -1,8 +1,8 @@
 import numpy as np
-import os, math
-from detection import utils
+import os
 import colorsys
 from PIL import Image
+from utils.paths import DET_DATA_DIR, PLOTS_DIR
 
 
 def plot_segm_map_np(img, map):
@@ -21,13 +21,13 @@ def plot_segm_map_np(img, map):
     return Image.alpha_composite(im, map_img)
 
 
-def plot_segm_map(frame_nb, fl_nb=0, data_path=utils.DET_DATA_DIR, save=False):
+def plot_segm_map(frame_nb, fl_nb=0, data_path=DET_DATA_DIR, save=False):
     npz = np.load(os.path.join(data_path, "%06d.npz" % fl_nb))
     data = npz['data']
     im = plot_segm_map_np(data[frame_nb, 0, :, :], data[frame_nb, 1, :, :])
 
     if save:
-        im.save(os.path.join(utils.PLOTS_DIR, "%06d_segm_map.png" % frame_nb))
+        im.save(os.path.join(PLOTS_DIR, "%06d_segm_map.png" % frame_nb))
     return im
 
 
@@ -44,17 +44,17 @@ def plot_angle_map_np(img, map):
     return im
 
 
-def plot_angle_map(frame_nb, fl_nb=0, data_path=utils.DET_DATA_DIR, save=False):
+def plot_angle_map(frame_nb, fl_nb=0, data_path=DET_DATA_DIR, save=False):
     npz = np.load(os.path.join(data_path, "%06d.npz" % fl_nb))
     data = npz['data']
     im = plot_angle_map_np(data[frame_nb, 0, :, :], data[frame_nb, 2, :, :])
 
     if save:
-        im.save(os.path.join(utils.PLOTS_DIR, "%06d_angle_map.png" % frame_nb))
+        im.save(os.path.join(PLOTS_DIR, "%06d_angle_map.png" % frame_nb))
     return im
 
 
-def plot_weight_map(frame_nb, fl_nb=0, data_path=utils.DET_DATA_DIR, save=False):
+def plot_weight_map(frame_nb, fl_nb=0, data_path=DET_DATA_DIR, save=False):
     npz = np.load(os.path.join(data_path, "%06d.npz" % fl_nb))
     data = npz['data']
     img = data[frame_nb, 0, :, :]
@@ -73,7 +73,7 @@ def plot_weight_map(frame_nb, fl_nb=0, data_path=utils.DET_DATA_DIR, save=False)
     im = im.convert("RGBA")
     im = Image.alpha_composite(im, map_img)
     if save:
-        im.save(os.path.join(utils.PLOTS_DIR, "%06d_weight_map.png" % frame_nb))
+        im.save(os.path.join(PLOTS_DIR, "%06d_weight_map.png" % frame_nb))
     return im
 
 
