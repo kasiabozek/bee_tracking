@@ -1,4 +1,4 @@
-import os, shutil
+import os
 import tensorflow as tf
 if int(tf.__version__[0]) > 1:
     import tensorflow.compat.v1 as tf
@@ -7,7 +7,7 @@ import numpy as np
 from . import inception
 import multiprocessing as mp
 from utils.func import EMB_SIZE, DT, SQ, FR1, FR2
-from utils.paths import IMG_DIR, TMP_DIR, POS_DIR, CHECKPOINT_DIR, REF_DIR
+from utils.paths import IMG_DIR, TMP_DIR, POS_DIR, CHECKPOINT_DIR
 from utils import func
 import random, math
 import queue
@@ -52,7 +52,8 @@ def tras_in_frames(ref_tras, fr1, fr2):
         if i1.size > 0:
             i2 = np.where(ref_tras[i][:, 0] == fr2)[0]
             if i2.size > 0:
-                res.append((i,i1,i2))
+                res.append((i,i1[0],i2[0]))
+    return res
 
 def generate_all_pairs(ref_tras, fr1, fr2):
     track_nbs = tras_in_frames(ref_tras, fr1, fr2)
@@ -114,7 +115,7 @@ def all_producer():
 
 
 def hard_producer():
-    n = 100
+    n = 3
     pairs = np.zeros((n, LABEL_SIZE), dtype=np.int)
     i = 0
     while True:
@@ -223,12 +224,13 @@ def train(checkpoint_dir, n_iters):
         is_train = tf.constant(True, dtype=tf.bool, shape=[])
 
         outputs = []
-        with tf.device(tf_dev), tf.name_scope('%s_%d' % (func.GPU_NAME, 0)) as scope:
-            imgs, label = train_iter.get_next()
-            pos_distance, neg_distance, loss = triplet_loss(scope, imgs, is_train, EMB_SIZE, MARGIN)
-            outputs = [loss, pos_distance, neg_distance, label]
-            update_ops.extend(tf.get_collection(tf.GraphKeys.UPDATE_OPS))
-            grads = opt.compute_gradients(loss)
+        with tf.variable_scope(tf.get_variable_scope()):
+            with tf.device(tf_dev), tf.name_scope('%s_%d' % (func.GPU_NAME, 0)) as scope:
+                imgs, label = train_iter.get_next()
+                pos_distance, neg_distance, loss = triplet_loss(scope, imgs, is_train, EMB_SIZE, MARGIN)
+                outputs = [loss, pos_distance, neg_distance, label]
+                update_ops.extend(tf.get_collection(tf.GraphKeys.UPDATE_OPS))
+                grads = opt.compute_gradients(loss)
 
         apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
         variable_averages = tf.train.ExponentialMovingAverage(func.MOVING_AVERAGE_DECAY, global_step)
@@ -240,6 +242,7 @@ def train(checkpoint_dir, n_iters):
         sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
         checkpoint = func.find_last_checkpoint(checkpoint_dir)
+        acc_file = os.path.join(checkpoint_dir, "accuracy.csv")
         if checkpoint > 0:
             print("Restoring checkpoint %i.." % checkpoint, flush=True)
             saver.restore(sess, os.path.join(checkpoint_dir, 'model_%06d.ckpt' % checkpoint))
@@ -257,7 +260,7 @@ def train(checkpoint_dir, n_iters):
         for itr in range(checkpoint, checkpoint+n_iters):
             ttime = time.time()
             outs = np.zeros((BATCHES_PER_ITER * BATCH_SIZE, 3))
-            labels = np.zeros([BATCHES_PER_ITER * BATCH_SIZE, 10])
+            labels = np.zeros([BATCHES_PER_ITER * BATCH_SIZE, LABEL_SIZE])
             for i in range(BATCHES_PER_ITER):
                 _, batch_outs = sess.run([train_op, outputs])
                 inds = list(range(i * BATCH_SIZE, (i + 1) * BATCH_SIZE))
@@ -267,18 +270,18 @@ def train(checkpoint_dir, n_iters):
                 labels[inds, :] = batch_outs[3]
 
             hard_triplets = outs[:, 2] < (outs[:, 1] + MARGIN)
-            is_all = labels[:, 8] == 0
+            is_all = labels[:, -1] == 0
             hard_of_all = np.sum(outs[is_all, 2] < (outs[is_all, 1] + MARGIN))
-            is_hard = labels[:, 8] == 1
+            is_hard = labels[:, -1] == 1
             hard_of_hard = np.sum(outs[is_hard, 2] < (outs[is_hard, 1] + MARGIN))
-            print("-- %i / %i hard triplets  %i / %i in all  %i / %i in hard" %
+            print("-- %i / %i wrong triplets  %i / %i in all  %i / %i in previously wrong" %
                   (np.sum(hard_triplets), outs.shape[0], hard_of_all, np.sum(is_all), hard_of_hard, np.sum(is_hard)), flush=True)
 
-            hard_labels = np.reshape(labels[hard_triplets, :], (-1, 10))
+            hard_labels = np.reshape(labels[hard_triplets, :], (-1, LABEL_SIZE))
             for i in range(hard_labels.shape[0]):
-                hard_label_q.put(tuple(hard_labels[i, :9]))
+                hard_label_q.put(tuple(hard_labels[i, :-1]))
 
-            with open(os.path.join(checkpoint_dir, "acc.csv"), 'ab') as f:
+            with open(acc_file, 'ab') as f:
                 np.savetxt(f, np.reshape(np.mean(outs, axis=0), (1, 3)), fmt='%.5f', delimiter=',', newline='\n')
 
             print("TRAIN/TEST EPOCH %i : %.2f min - loss: %.6f; mean pos dist: %.6f  mean neg dist: %.6f " %
@@ -322,7 +325,7 @@ def stop_workers(workers):
         p.terminate()
 
 
-def run_train(checkpoint_dir=CHECKPOINT_DIR, n_iters=10):
+def run_train(checkpoint_dir=os.path.join(CHECKPOINT_DIR,"inception"), n_iters=10):
     try:
         create_arrays()
         workers = start_workers()

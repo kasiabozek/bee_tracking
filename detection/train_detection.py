@@ -19,8 +19,6 @@ BASE_LR = 0.0001
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
-acc_file = os.path.join(CHECKPOINT_DIR, "accuracy.csv")
-
 
 def flip_h(data):
     data = np.flip(data, axis=2)
@@ -70,9 +68,6 @@ class TrainModel:
         loss_softmax = unet.loss(logits, label, weight, CLASSES)
         loss_angle = unet.angle_loss(angle_pred, angle_label, weight)
 
-        #tf.add_to_collection('losses', loss_softmax)
-        #tf.add_to_collection('losses', loss_angle)
-        #losses = tf.get_collection('losses')
         total_loss = loss_softmax + loss_angle #tf.add_n(losses, name='total_loss')
         return logits, total_loss, last_relu, angle_pred
 
@@ -93,12 +88,12 @@ class TrainModel:
             self.placeholder_prior = tf.placeholder(tf.float32, shape=(BATCH_SIZE, DS, DS, NUM_FILTERS), name="prior")
 
             with tf.device(tf_dev), tf.name_scope('%s_%d' % (GPU_NAME, 0)) as scope:
-                    logits, loss, last_relu, angle_pred = self._loss(self.placeholder_img, self.placeholder_label,
-                                                                     self.placeholder_weight, self.placeholder_angle_label,
-                                                                     self.placeholder_prior)
-                    self.outputs = (logits, loss, last_relu, angle_pred)
-                    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-                    grads = opt.compute_gradients(loss)
+                logits, loss, last_relu, angle_pred = self._loss(self.placeholder_img, self.placeholder_label,
+                                                                 self.placeholder_weight, self.placeholder_angle_label,
+                                                                 self.placeholder_prior)
+                self.outputs = (logits, loss, last_relu, angle_pred)
+                update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+                grads = opt.compute_gradients(loss)
 
             #grads = self._average_gradients(grads)
             apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
@@ -110,6 +105,7 @@ class TrainModel:
             self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
             self.checkpoint_dir = checkpoint_dir
+            self.acc_file = os.path.join(checkpoint_dir, "accuracy.csv")
             checkpoint = func.find_last_checkpoint(checkpoint_dir)
             if checkpoint > 0:
                 print("Restoring checkpoint %i.." % checkpoint, flush=True)
@@ -119,10 +115,11 @@ class TrainModel:
                 init = tf.global_variables_initializer()
                 self.sess.run(init)
                 checkpoint = 0
-
             init = tf.local_variables_initializer()
             self.sess.run(init)
-            return checkpoint
+
+        return checkpoint
+
 
     def _accuracy(self, step, loss, logits, angle_preds, batch_data):
         batch_data = batch_data[:, step, :, :, :]
@@ -179,23 +176,14 @@ class TrainModel:
             accuracy_t += self._accuracy(step, outs[1], outs[0], outs[3], batch_data)
             if (step == (batch_data.shape[1]-1)) and plot:
                 for i in range(BATCH_SIZE):
-                    #im = segm_map.plot_segm_map_np(batch_data[i,step,0,:,:], batch_data[i,step,1,:,:])
-                    #im.save(os.path.join(utils.TMP_DIR, "%03d_%03d_segm_label.png" % (step, i)))
-
                     im_segm = segm_map.plot_segm_map_np(batch_data[i, step, 0, :, :], np.argmax(outs[0][i], axis=2))
-                    #im.save(os.path.join(utils.TMP_DIR, "%03d_%03d_segm_out.png" % (step, i)))
-
-                    #im = segm_map.plot_angle_map_np(batch_data[i,step,0,:,:], batch_data[i,step,2,:,:])
-                    #im.save(os.path.join(utils.TMP_DIR, "%03d_%03d_angle_label.png" % (step, i)))
-
                     im_angle = segm_map.plot_angle_map_np(batch_data[i,step,0,:,:], outs[3][i])
-                    #im.save(os.path.join(utils.TMP_DIR, "%03d_%03d_angle_out.png" % (step, i)))
                     res_img.append((im_segm, im_angle))
 
         accuracy_t = accuracy_t / (batch_data.shape[1] - last_step)
         accuracy_t[0] = 1
         print("TEST - time: %.3f min, loss: %.3f, background overlap: %.3f, foreground overlap: %.3f, class error: %.3f, angle error: %.3f" % ((time.time() - t1) / 60, accuracy_t[1], accuracy_t[2], accuracy_t[3], accuracy_t[4], accuracy_t[5]), flush=True)
-        with open(acc_file, 'a') as f:
+        with open(self.acc_file, 'a') as f:
             np.savetxt(f, np.reshape(accuracy_t, (1,-1)), fmt='%.5f', delimiter=',', newline='\n')
         return res_img
 
@@ -214,17 +202,11 @@ class TrainModel:
                                     feed_dict=self._input_batch(step, batch_data, last_relus, True))
             last_relus = outs[2]
             accuracy_t += self._accuracy(step, outs[1], outs[0], outs[3], batch_data)
-        #if plot:
-        #    for i in range(BATCH_SIZE):
-        #        im = segm_map.plot_segm_map_np(batch_data[i,step,0,:,:], np.argmax(outs[0][i], axis=2))
-        #        im.save(os.path.join(utils.TMP_DIR, "%03d_%03d_segm_map.png" % (step, i)))
-        #        im = segm_map.plot_angle_map_np(batch_data[i,step,0,:,:], outs[3][i])
-        #        im.save(os.path.join(utils.TMP_DIR, "%03d_%03d_angle_map.png" % (step, i)))
 
         accuracy_t = accuracy_t / train_steps
         accuracy_t[0] = 0
         print("TRAIN - time: %.3f min, loss: %.3f, background overlap: %.3f, foreground overlap: %.3f, class error: %.3f, angle error: %.3f" % ((time.time() - t1) / 60, accuracy_t[1], accuracy_t[2], accuracy_t[3], accuracy_t[4], accuracy_t[5]), flush=True)
-        with open(acc_file, 'a') as f:
+        with open(self.acc_file, 'a') as f:
             np.savetxt(f, np.reshape(accuracy_t, (1,-1)), fmt='%.5f', delimiter=',', newline='\n')
 
         img = []

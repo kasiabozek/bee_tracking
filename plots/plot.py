@@ -111,7 +111,7 @@ def plot_frame_bees(fr, bees_in_frames, hues):
     draw = ImageDraw.Draw(markers)
     all_bees = np.loadtxt(os.path.join(POS_DIR, "%06d.txt" % fr), delimiter=',').astype(np.int)
 
-    fnt = ImageFont.truetype('arial.ttf', 20)
+    fnt = ImageFont.truetype('plots/arial.ttf', 20)
 
     for i in range(all_bees.shape[0]):
         x, y = all_bees[i, 0], all_bees[i, 1]

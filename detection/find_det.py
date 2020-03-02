@@ -9,6 +9,7 @@ import time
 import numpy as np
 import math
 import shutil
+import itertools
 import multiprocessing
 from utils.paths import DATA_DIR, IMG_DIR, POS_DIR, TMP_DIR, CHECKPOINT_DIR
 from utils.func import DS, GPU_NAME, NUM_LAYERS, NUM_FILTERS, CLASSES
@@ -30,6 +31,11 @@ def read_all_files():
         fls.extend(map(lambda fl: os.path.join(dr, fl), dr_fls))
     print("%i files" % len(fls), flush=True)
     return fls
+
+def generate_offsets_for_frame():
+    xs = range(0, func.FR_D, DS)
+    ys = range(0, func.FR_D, DS)
+    return list(itertools.product(xs, ys))
 
 ######## POSTPROCESSING AND SAVING SEGMENTATION RESULTS ############
 
@@ -173,7 +179,8 @@ def find_detections(checkpoint_dir=os.path.join(CHECKPOINT_DIR, "unet2")):
         os.mkdir(TMP_DIR)
 
     fls = read_all_files()
-    offsets = func.get_offsets_in_frame(True)
+
+    offsets = generate_offsets_for_frame()
     with DetectionInference() as model_obj:
         model_obj.build_model(checkpoint_dir)
         model_obj.start_workers()

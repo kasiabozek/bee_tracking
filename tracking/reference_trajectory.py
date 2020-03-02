@@ -1,8 +1,11 @@
 import os, shutil, re
 import numpy as np
+from functools import partial
+from multiprocessing import Pool, Queue
 from utils.paths import REF_DIR, TRACK_DIR
 
-
+res_q = Queue()
+N_PROC = 3
 
 def read_all_refs(ref_dir=REF_DIR):
     files = [f for f in os.listdir(ref_dir) if re.search('([0-9]+).txt$', f)]
@@ -57,4 +60,36 @@ def add_ref_trajectories(nbs, ref_dir=REF_DIR, tra_dir=TRACK_DIR):
             shutil.copyfile(os.path.join(tra_dir, "%06d.txt" % nb), os.path.join(ref_dir, "%06d.txt" % ref_nb))
             refs.append(tra)
             ref_nbs.append(ref_nb)
+
+
+def check_overlap_file(nb, tra_dir, refs):
+    tra = np.loadtxt(os.path.join(tra_dir, "%06d.txt" % nb), dtype=np.int, delimiter=",")
+    ref_ov, ref_nb = 0, -1
+    j = 0
+    while (j < len(refs)) and (ref_ov < 0.5):
+        ov = overlap_tra(tra, refs[j])
+        if ov > ref_ov:
+            ref_ov, ref_nb = ov, j
+        j += 1
+    res_q.put((nb, ref_ov, ref_nb))
+
+
+def calculate_overlap(tra_dir=TRACK_DIR, ref_dir=REF_DIR):
+    refs, ref_nbs = read_all_refs(ref_dir)
+    files = [f for f in os.listdir(tra_dir) if re.search('([0-9]+).txt$', f)]
+    files.sort()
+    nbs = list(map(lambda f: int(re.match(r'([0-9]+).txt$', f).group(1)), files))
+
+    pool = Pool(processes=N_PROC)
+    pool.map(partial(check_overlap_file, tra_dir=tra_dir, refs=refs), nbs)
+
+    res = np.zeros((len(nbs), 3), dtype=np.int)
+    for i in range(len(nbs)):
+        (tra_nb, ref_ov, ref_i) = res_q.get()
+        res[i,:] = [tra_nb, ref_nbs[ref_i], ref_ov]
+    pool.close()
+    pool.join()
+
+    return res
+
 
