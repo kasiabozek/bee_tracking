@@ -3,6 +3,7 @@ import math
 import os
 import random
 import re
+from datetime import time
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -59,7 +60,33 @@ def add_circle(draw, x, y, col, w=1, r=10):
 ###########################################
 
 
-def plot_frame(fr, tra):
+def time_text(img, tra, fr, fps, fsize):
+    xmax, ymax = img.size
+    m = 5
+    corners = [ (xmax-fsize*2.5-m, ymax-fsize-m), (xmax-fsize*2.5-m, m), (m, ymax-fsize-m), (m, m) ]
+    corner_i = 0
+    if tra.size > 0:
+        d = np.min(((tra[:, 1] - corners[corner_i][0]) ** 2 + (tra[:, 2] - corners[corner_i][1]) ** 2) ** 0.5)
+        in_corner = d < SQ * 2
+        while (corner_i < len(corners)) and in_corner:
+            corner_i += 1
+            d = np.min(((tra[:, 1] - corners[corner_i][0]) ** 2 + (tra[:, 2] - corners[corner_i][1]) ** 2) ** 0.5)
+            in_corner = d < SQ * 2
+        if corner_i == len(corners):
+            corner_i = 0
+    x, y = corners[corner_i]
+
+    h = fr // (fps*60*60)
+    fr = fr % (fps*60*60)
+    min = fr // (fps * 60)
+    fr = fr % (fps * 60)
+    sec = fr // fps
+    s = time(h, min, sec).strftime("%M:%S")
+
+    return (x, y), s
+
+
+def plot_frame(fr, tra, fps):
     img = Image.open(os.path.join(IMG_DIR, "%06d.png" % fr)).convert('RGBA')
     draw = ImageDraw.Draw(img)
 
@@ -81,10 +108,14 @@ def plot_frame(fr, tra):
         draw.line([(x-SQ, y-SQ), (x+SQ, y-SQ), (x+SQ, y+SQ), (x-SQ, y+SQ), (x-SQ, y-SQ)], fill=BEE_COL, width=WIDTH)
         add_center(draw, x, y, BEE_COL)
 
+    fsize = 20
+    (x, y), s = time_text(img, tra, fr, fps, fsize)
+    fnt = ImageFont.truetype('plots/arial.ttf', fsize)
+    draw.text((x, y), s, font=fnt, fill=(255, 0, 0, 255))
     return img
 
 
-def plot_trajectory(id):
+def plot_trajectory(id, fps=10):
     print("plotting trajectory %i.." % id, flush=True)
     if not os.path.exists(PLOTS_DIR):
         os.mkdir(PLOTS_DIR)
@@ -93,11 +124,11 @@ def plot_trajectory(id):
     fr1, fr2 = int(tra[0,0]), int(tra[-1,0])
     frs = list(range(fr1, fr2))
 
-    imgs = [ plot_frame(fr, tra) for fr in frs ]
+    imgs = [ plot_frame(fr, tra, fps) for fr in frs ]
 
     movie_file = os.path.join(PLOTS_DIR, "%06d.gif" % (id))
 
-    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)
+    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=1000//fps, loop=0)
 
     return movie_file
 
@@ -151,7 +182,7 @@ def organize_by_frame():
     return res, tra_nbs
 
 
-def plot_all_trajectories():
+def plot_all_trajectories(fps=10):
     if not os.path.exists(PLOTS_DIR):
         os.mkdir(PLOTS_DIR)
 
@@ -162,14 +193,14 @@ def plot_all_trajectories():
 
     imgs = [plot_frame_bees(fr, bif, hues) for fr in range(FR1, FR2)]
     movie_file = os.path.join(PLOTS_DIR, "all_trajectories.gif")
-    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)
+    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=1000//fps, loop=0)
 
     return movie_file
 
 ##################################################################
 
 
-def plot_detections(fr, save):
+def plot_detections(fr, save, fps=10):
     if save:
         if not os.path.exists(PLOTS_DIR):
             os.mkdir(PLOTS_DIR)
@@ -186,16 +217,21 @@ def plot_detections(fr, save):
             add_arrow(draw, x, y, math.radians(all_bees[i, 3]), OTHER_BEE_COL)
         add_center(draw, x, y, OTHER_BEE_COL, d=WIDTH//2)
 
+    fsize = 20
+    (x, y), s = time_text(img, np.array([]), fr, fps, fsize)
+    fnt = ImageFont.truetype('plots/arial.ttf', fsize)
+    draw.text((x, y), s, font=fnt, fill=(255, 0, 0, 255))
+
     if save:
         img.save(os.path.join(PLOTS_DIR, "%06d.png" % fr))
     return img
 
 
-def plot_detection_video():
+def plot_detection_video(fps=10):
     if not os.path.exists(PLOTS_DIR):
         os.mkdir(PLOTS_DIR)
 
-    imgs = [ plot_detections(fr, False) for fr in range(FR1, FR2) ]
+    imgs = [ plot_detections(fr, False, fps) for fr in range(FR1, FR2) ]
 
     movie_file = os.path.join(PLOTS_DIR, "detections.gif")
-    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=100, loop=0)
+    imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=1000//fps, loop=0)
