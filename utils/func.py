@@ -31,7 +31,7 @@ def find_devices():
     devices = device_lib.list_local_devices()
     cpu, gpu = "", ""
     i = 0
-    while (i < len(devices)) and (cpu == "") and (gpu == ""):
+    while (i < len(devices)) and ((cpu == "") or (gpu == "")):
         if devices[i].device_type == "CPU":
             cpu = devices[i].name
         elif devices[i].device_type == "GPU":
