@@ -1,5 +1,4 @@
 import imageio
-import cv2
 from IPython.display import HTML
 from matplotlib import animation
 import numpy as np
@@ -57,9 +56,7 @@ class FrameAnimator(object):
             return HTML(self.anim.to_jshtml())
 
 
-def GifReader(path, figsize=(8,8)):
-    # Load gif into images and invert BGR->RGB
-    images_BGR = imageio.mimread(path)
-    images_RGB = [cv2.cvtColor(img, cv2.COLOR_RGB2BGR) for img in images_BGR]
-    animator = FrameAnimator(images_RGB, figsize=figsize)
+def read_gif(path, figsize=(8,8)):
+    images = imageio.mimread(path)
+    animator = FrameAnimator(images, figsize=figsize)
     return animator()
