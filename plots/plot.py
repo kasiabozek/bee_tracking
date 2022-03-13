@@ -13,14 +13,27 @@ from utils.paths import TRACK_DIR, IMG_DIR, POS_DIR, PLOTS_DIR
 
 WIDTH = 2
 BEE_COL = (255, 0, 0, 200)
-OTHER_BEE_COL = (255, 255, 0, 200)
+OTHER_BEE_COL = (255, 255, 0, 200) # Yellow.
 
 ###########################################
 
 def add_center(draw, x, y, col, d=WIDTH):
+    '''
+    Draws a square around the center point provided.
+
+    Args:
+        draw: ImageDraw.Draw object
+        x: x center coordinate
+        y: y center coordinate
+        col: color
+        d: half of the width of the square
+    '''
     draw.rectangle([x-d, y-d, x+d, y+d], outline=col, fill=col)
 
 def draw_head(x, y, a, draw, col, d, w):
+    '''
+    Draws arrow head, by adding two lines leaving from point (x,y).
+    '''
     da = math.pi / 7
     dx = round(math.sin(a-da) * d)
     dy = round(math.cos(a-da) * d)
@@ -32,14 +45,28 @@ def draw_head(x, y, a, draw, col, d, w):
     draw.line([(x2,y2),(x,y)], fill=col, width=w)
 
 def add_arrow(draw, x, y, a, col, w=1, d=25.0):
+    '''
+    Args:
+        draw: ImageDraw.Draw object
+        x: x center coordinate
+        y: y center coordinate
+        a: angle in radians from the vertical
+        col: color
+        w: thickness of line
+        d: length-ish of arrow
+    '''
     (x1,y1,x2,y2) = (0,0,0,0)
     dn = 4
+    # 90 degrees.
     if (a == math.pi/2):
         (x1,y1,x2,y2) = (x+d/dn, y, x-d, y)
+    # 270 degrees.
     elif (a == math.pi*3/4):
         (x1,y1,x2,y2) = (x-d/dn, y, x+d, y)
+    # 0 degrees.
     elif (a == 0):
         (x1,y1,x2,y2) = (x, y+d/dn, x, y-d)
+    # 180 degrees.
     elif (a == math.pi):
         (x1,y1,x2,y2) = (x, y-d/dn, x, y+d)
     else:
@@ -200,15 +227,24 @@ def plot_all_trajectories(fps=10):
 ##################################################################
 
 
-def plot_detections(fr, save, fps=10):
+def plot_detections(fr, save, img_dir=IMG_DIR, pos_dir=POS_DIR, fps=10):
     if save:
         if not os.path.exists(PLOTS_DIR):
             os.mkdir(PLOTS_DIR)
 
-    img = Image.open(os.path.join(IMG_DIR, "%06d.png" % fr)).convert('RGBA')
-    draw = ImageDraw.Draw(img)
-    all_bees = np.loadtxt(os.path.join(POS_DIR, "%06d.txt" % fr), delimiter=',').astype(np.int)
+    img = Image.open(os.path.join(img_dir, "%06d.png" % fr)).convert('RGBA')
+    try:
+      all_bees = np.loadtxt(os.path.join(pos_dir, "%06d.txt" % fr), delimiter=',').astype(np.int)
+    except OSError:
+      print('Warning: No positions file found for frame', fr)
+      return img
+    if all_bees.size == 0:
+      print('Warning: Empty positions file found for frame', fr)
+      return img
+    if len(all_bees.shape) == 1:
+      all_bees = np.expand_dims(all_bees, axis=0)
 
+    draw = ImageDraw.Draw(img)
     for i in range(all_bees.shape[0]):
         x, y = all_bees[i, 0], all_bees[i, 1]
         if all_bees[i, 2] == 1:
@@ -226,12 +262,11 @@ def plot_detections(fr, save, fps=10):
         img.save(os.path.join(PLOTS_DIR, "%06d.png" % fr))
     return img
 
+def plot_detection_video(start_frame=FR1, end_frame=FR2, fps=10, img_dir=IMG_DIR, pos_dir=POS_DIR, plots_dir=PLOTS_DIR):
+    if not os.path.exists(plots_dir):
+        os.mkdir(plots_dir)
 
-def plot_detection_video(fps=10):
-    if not os.path.exists(PLOTS_DIR):
-        os.mkdir(PLOTS_DIR)
+    imgs = [ plot_detections(fr, False, img_dir, pos_dir, fps) for fr in range(start_frame, end_frame) ]
 
-    imgs = [ plot_detections(fr, False, fps) for fr in range(FR1, FR2) ]
-
-    movie_file = os.path.join(PLOTS_DIR, "detections.gif")
+    movie_file = os.path.join(plots_dir, "detections.gif")
     imgs[0].save(movie_file, save_all=True, append_images=imgs[1:], duration=1000//fps, loop=0)

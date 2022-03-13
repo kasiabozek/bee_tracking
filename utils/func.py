@@ -16,6 +16,8 @@ FR1, FR2 = 0, 100
 GPU_NAME = 'tower'
 DS = 256
 FR_D = 512
+FR_H = 256*4 # 1024 (Y dimension)
+FR_W = 256*6 # 1536 (X dimension)
 
 NUM_LAYERS = 3
 NUM_FILTERS = 32
@@ -41,14 +43,25 @@ def find_devices():
         gpu = ""
     return (cpu, gpu)
 
+'''
+Returns normalized image array either by using the frame number and image director OR the image filepath directly.
+'''
+def read_img(fr=0, dir='', img_file=None):
+    if img_file is None:
+      img_file = os.path.join(dir, "%06d.png" % fr)
 
-def read_img(fr, path):
-    img = Image.open(os.path.join(path, "%06d.png" % fr)).convert('L')
+    img = Image.open(img_file).convert('L')
     img = np.asarray(img, dtype=np.float32)
     img = (img - np.min(img)) / (np.max(img) - np.min(img))
     img = img * 2 - 1
     return img
 
+'''
+Ensures image dimensions are divisibile by DS (256). 
+'''
+def check_img_shape(img_shape):
+    if img_shape[0] % DS != 0 or img_shape[1] % DS != 0:
+        raise ValueError("Frame dimensions should be divisible by {ds}. Given frame shape is: {shape}.".format(ds=DS, shape=img_shape))
 
 def crop(img, y, x):
     d = np.zeros((DT, DT), dtype=np.float32)

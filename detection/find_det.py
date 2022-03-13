@@ -22,24 +22,30 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 
 to_save = multiprocessing.Queue()
 
-def read_all_files():
-    drs = [""]
+def read_all_files(img_dir):
+    drs = [img_dir]
     fls = []
     for dr in drs:
-        dr_fls = os.listdir(IMG_DIR)
+        dr_fls = os.listdir(dr)
         dr_fls.sort()
         fls.extend(map(lambda fl: os.path.join(dr, fl), dr_fls))
     print("%i files" % len(fls), flush=True)
     return fls
 
-def generate_offsets_for_frame():
-    xs = range(0, func.FR_D, DS)
-    ys = range(0, func.FR_D, DS)
+def get_img_shape(img_dir):
+    return func.read_img(0, img_dir).shape
+
+# Generate offset (x,y) coordinates, to create 256x256 patches on each frame.
+def generate_offsets_for_frame(img_shape):
+    func.check_img_shape(img_shape) 
+    h, w = img_shape
+    xs = range(0, w, DS)
+    ys = range(0, h, DS)
     return list(itertools.product(xs, ys))
 
 ######## POSTPROCESSING AND SAVING SEGMENTATION RESULTS ############
 
-def save_output_worker():
+def save_output_worker(total_frames, output_dir):
     output = np.zeros((BATCH_SIZE, 2, DS, DS))
     while True:
         output_i, offs, cur_fr = to_save.get()
@@ -64,8 +70,8 @@ def save_output_worker():
                 res_batch[:, 0] += off_x
                 res_batch[:, 1] += off_y
                 res = np.append(res, res_batch, axis=0)
-        print("processed frame %i, %i bees" % (cur_fr, res.shape[0]), flush=True)
-        with open(os.path.join(POS_DIR, "%06d.txt" % cur_fr), 'a') as f:
+        print("processed frame %i patch %i, %i bees" % (cur_fr, (output_i-cur_fr)/total_frames + 1, res.shape[0]), flush=True)
+        with open(os.path.join(output_dir, "%06d.txt" % cur_fr), 'a') as f:
             np.savetxt(f, res, fmt='%i', delimiter=',', newline='\n')
 
 ############# INFERENCE MODEL #####################
@@ -111,8 +117,8 @@ class DetectionInference:
             self.sess.run(init)
 
 
-    def _feed_dict(self, offs, cur_fr, priors):
-        img = func.read_img(cur_fr, IMG_DIR)
+    def _feed_dict(self, offs, fl, priors):
+        img = func.read_img(img_file=fl)
         for batch_i in range(BATCH_SIZE):
             (off_x, off_y) = offs[batch_i]
             if (off_x >= 0) and (off_y >= 0):
@@ -132,8 +138,15 @@ class DetectionInference:
         return res, start_i
 
 
-    def start_workers(self):
-        self.workers = [multiprocessing.Process(target=save_output_worker) for _ in range(N_PROC)]
+    '''
+    Start threads to process segmentation results and save .txt files in pos_dir, per frame.
+
+    Params:
+      total_frames: total number of frames to be process, used only for printing status.
+      pos_dir: Dir to store .txt files (1 per frame) holding positions and angles of each bee detection.
+    '''
+    def start_workers(self, total_frames, pos_dir=POS_DIR):
+        self.workers = [multiprocessing.Process(target=save_output_worker, args=(total_frames,pos_dir,)) for _ in range(N_PROC)]
         for p in self.workers:
             p.start()
 
@@ -158,8 +171,8 @@ class DetectionInference:
         for i in range(n_runs):
             run_offs, start_off_i = self._load_offs_for_run(offsets, start_off_i)
             last_priors = np.zeros((BATCH_SIZE, DS, DS, NUM_FILTERS), dtype=np.float32)
-            for cur_fr in range(len(fls)):
-                feed_dict = self._feed_dict(run_offs, cur_fr, last_priors)
+            for cur_fr,fl in enumerate(fls):
+                feed_dict = self._feed_dict(run_offs, fl, last_priors)
                 outs, last_priors = self.sess.run([self.outputs, self.priors], feed_dict=feed_dict)
                 self._save_output(outs, output_i)
                 to_save.put((output_i, run_offs, cur_fr))
@@ -170,20 +183,22 @@ class DetectionInference:
 
 ######## MAIN FUNCTION ##############
 
-def find_detections(checkpoint_dir=os.path.join(CHECKPOINT_DIR, "unet2")):
+def find_detections(checkpoint_dir=os.path.join(CHECKPOINT_DIR, "unet2"), img_dir=IMG_DIR, pos_dir=POS_DIR):
     print(DATA_DIR)
-    if os.path.exists(POS_DIR):
-        shutil.rmtree(POS_DIR)
-    os.mkdir(POS_DIR)
+    if os.path.exists(pos_dir):
+        shutil.rmtree(pos_dir)
+    os.mkdir(pos_dir)
     if not os.path.exists(TMP_DIR):
         os.mkdir(TMP_DIR)
 
-    fls = read_all_files()
+    fls = read_all_files(img_dir)
+    num_fls = len(fls)
 
-    offsets = generate_offsets_for_frame()
+    img_shape = get_img_shape(img_dir)
+    offsets = generate_offsets_for_frame(img_shape)
     with DetectionInference() as model_obj:
         model_obj.build_model(checkpoint_dir)
-        model_obj.start_workers()
+        model_obj.start_workers(num_fls, pos_dir)
         try:
             model_obj.run_inference(fls, offsets)
         finally:

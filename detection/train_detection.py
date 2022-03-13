@@ -142,7 +142,9 @@ class TrainModel:
             angle_err = np.mean(np.abs(pred_angle[is_fg] - angle[is_fg]))
         return np.array([0, loss, bg, fg, fg_err, angle_err])
 
-
+    '''
+    For a batch, randomly choose DS x DS patch, randomly flip horizontally and vertically.
+    '''
     def _sample_offsets(self, data):
         res = np.zeros((BATCH_SIZE, data.shape[0], data.shape[1], DS, DS))
         for i in range(BATCH_SIZE):
